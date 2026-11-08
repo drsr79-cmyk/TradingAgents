@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import os
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -70,10 +69,22 @@ class TradingAgentsGraph:
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
 
+        from tradingagents.safety import MAX_DEBATE_ROUNDS, MAX_TOOL_ROUNDS, harden_dir
+
+        max_tool_rounds = self.config.get("max_tool_rounds", 20)
+        if isinstance(max_tool_rounds, int) and max_tool_rounds > MAX_TOOL_ROUNDS:
+            raise ValueError(
+                f"max_tool_rounds cannot exceed {MAX_TOOL_ROUNDS} (got {max_tool_rounds})"
+            )
+        for name in ("max_debate_rounds", "max_risk_discuss_rounds"):
+            value = self.config.get(name, 1)
+            if isinstance(value, int) and value > MAX_DEBATE_ROUNDS:
+                raise ValueError(f"{name} cannot exceed {MAX_DEBATE_ROUNDS} (got {value})")
+
         set_config(self.config)
 
-        os.makedirs(self.config["data_cache_dir"], exist_ok=True)
-        os.makedirs(self.config["results_dir"], exist_ok=True)
+        harden_dir(self.config["data_cache_dir"])
+        harden_dir(self.config["results_dir"])
 
         extra = {"callbacks": self.callbacks} if self.callbacks else {}
         self.deep_thinking_llm = create_tier_client(self.config, "deep", **extra).get_llm()
@@ -464,13 +475,18 @@ class TradingAgentsGraph:
             "final_rating": run_rating(final_state),
             "run_settings": self.run_settings(),
         }
+        from tradingagents.safety import scrub_obj
+
+        entry = scrub_obj(entry)
 
         # A ticker that would escape the results directory is rejected.
         safe_ticker = safe_ticker_component(final_state["company_of_interest"])
         directory = Path(self.config["results_dir"]) / safe_ticker / "TradingAgentsStrategy_logs"
-        directory.mkdir(parents=True, exist_ok=True)
+        from tradingagents.safety import harden_dir, harden_file
 
+        harden_dir(directory)
         log_path = directory / f"full_states_log_{trade_date}.json"
         with open(log_path, "w", encoding="utf-8") as f:
             # Reports can be in any language and this file is read by a person.
             json.dump(entry, f, indent=4, ensure_ascii=False)
+        harden_file(log_path)

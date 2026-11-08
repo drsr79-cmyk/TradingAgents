@@ -9,7 +9,6 @@ A free API key (https://fred.stlouisfed.org/docs/api/api_key.html) is read from
 the routing layer treats it as "unavailable" rather than a hard crash.
 """
 import logging
-import os
 from datetime import datetime, timedelta
 
 import pytz
@@ -100,14 +99,15 @@ class FredNotConfiguredError(VendorNotConfiguredError):
 
 
 def get_api_key() -> str:
-    """Retrieve the FRED API key from the environment."""
-    api_key = os.getenv("FRED_API_KEY")
-    if not api_key:
-        raise FredNotConfiguredError(
-            "FRED_API_KEY environment variable is not set. Get a free key at "
-            "https://fred.stlouisfed.org/docs/api/api_key.html."
-        )
-    return api_key
+    """This analysis process does not read ``FRED_API_KEY``.
+
+    The value is not loaded. A separate ingestion service, which is not
+    implemented or deployed here, would be the only place that key could live.
+    """
+    from tradingagents.safety import refuse_vendor_key
+
+    refuse_vendor_key("FRED_API_KEY")
+    raise AssertionError("refuse_vendor_key returns only by raising")
 
 
 def _resolve_series_id(indicator: str) -> str:
@@ -160,6 +160,8 @@ def _request(path: str, params: dict) -> dict:
             message = response.json().get("error_message", response.text)
         except ValueError:
             message = response.text
+        if api_key:
+            message = str(message).replace(api_key, "***")
         raise ValueError(f"FRED request failed: {message}")
     return response.json()
 
@@ -186,8 +188,14 @@ def get_macro_data(
         A markdown report with the series title, units, frequency, the latest
         value, the change over the window, and a recent observation table.
     """
+    from tradingagents.safety import MAX_MACRO_LOOKBACK_DAYS, bound_int
+
     if look_back_days is None:
         look_back_days = DEFAULT_LOOKBACK_DAYS
+    bounded = bound_int("look_back_days", look_back_days, lo=1, hi=MAX_MACRO_LOOKBACK_DAYS)
+    if isinstance(bounded, str):
+        return f"FRED: {bounded}"
+    look_back_days = bounded
 
     end_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
     start_date = (end_dt - timedelta(days=look_back_days)).strftime("%Y-%m-%d")

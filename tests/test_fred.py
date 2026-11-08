@@ -8,7 +8,6 @@ import unittest
 from unittest import mock
 
 import pytest
-import requests
 
 import tradingagents.dataflows.config as config_module
 import tradingagents.default_config as default_config
@@ -99,8 +98,10 @@ class FredResolutionTests(unittest.TestCase):
 @pytest.mark.unit
 class FredConfigTests(unittest.TestCase):
     def test_missing_key_raises_not_configured(self):
+        from tradingagents.dataflows.errors import AnalysisProcessHasNoVendorKeys
+
         with mock.patch.dict("os.environ", {}, clear=True), \
-                self.assertRaises(fred.FredNotConfiguredError):
+                self.assertRaises(AnalysisProcessHasNoVendorKeys):
             fred.get_api_key()
 
     def test_not_configured_is_a_value_error(self):
@@ -263,46 +264,43 @@ _KEY = "abcdef0123456789abcdef0123456789"
 
 @pytest.mark.unit
 class TestKeyKeptOutOfErrors:
-    """The key travels as a query parameter, and requests quotes the full URL in
-    its error messages, so any log or traceback would carry it (#1324)."""
-
-    def _raises(self, side_effect):
-        with mock.patch.dict("os.environ", {"FRED_API_KEY": _KEY}), \
-             mock.patch("tradingagents.dataflows.net.requests.get", side_effect=side_effect), \
-             pytest.raises(requests.RequestException) as caught:
-            fred._request("series", {"series_id": "DGS10"})
-        return caught.value
+    """The analysis process never places the FRED key on a request."""
 
     def test_http_error_message_carries_no_key(self):
-        response = mock.Mock(status_code=502)
-        response.raise_for_status.side_effect = requests.HTTPError(
-            f"502 Server Error for url: https://api.stlouisfed.org/fred/series?api_key={_KEY}",
-            response=response,
-        )
+        from tradingagents.dataflows.errors import AnalysisProcessHasNoVendorKeys
+
+        called = []
         with mock.patch.dict("os.environ", {"FRED_API_KEY": _KEY}), \
-             mock.patch("tradingagents.dataflows.net.requests.get", return_value=response), \
-             pytest.raises(requests.HTTPError) as caught:
+             mock.patch("tradingagents.dataflows.net.requests.get",
+                        side_effect=lambda *a, **k: called.append(a)), \
+             pytest.raises(AnalysisProcessHasNoVendorKeys) as caught:
             fred._request("series", {"series_id": "DGS10"})
-        exc = caught.value
-        assert _KEY not in str(exc) and _KEY not in repr(exc)
-        # The response and request carry the full URL, so they are not attached.
-        assert exc.response is None and exc.request is None
-        assert exc.__cause__ is None and exc.__context__ is None  # no chain holds the key
+        assert _KEY not in str(caught.value)
+        assert called == []
 
     def test_connection_error_before_any_response_carries_no_key(self):
-        exc = self._raises(requests.ConnectionError(
-            f"Max retries exceeded with url: /fred/series?series_id=DGS10&api_key={_KEY}"))
-        assert isinstance(exc, requests.ConnectionError)
-        assert _KEY not in str(exc) and exc.__context__ is None
+        from tradingagents.dataflows.errors import AnalysisProcessHasNoVendorKeys
+
+        called = []
+        with mock.patch.dict("os.environ", {"FRED_API_KEY": _KEY}), \
+             mock.patch("tradingagents.dataflows.net.requests.get",
+                        side_effect=lambda *a, **k: called.append(a)), \
+             pytest.raises(AnalysisProcessHasNoVendorKeys) as caught:
+            fred._request("series", {"series_id": "DGS10"})
+        assert _KEY not in str(caught.value)
+        assert called == []
 
 
 @pytest.mark.unit
 def test_error_without_the_key_in_its_message_still_drops_the_request():
-    # Some timeout messages omit the URL, but the attached request still has it.
-    import requests as rq
-    req = rq.Request("GET", f"https://api.stlouisfed.org/fred/series?api_key={_KEY}").prepare()
+    """A prepared request that embeds the key is never sent by this process."""
+    from tradingagents.dataflows.errors import AnalysisProcessHasNoVendorKeys
+
+    called = []
     with mock.patch.dict("os.environ", {"FRED_API_KEY": _KEY}), \
-         mock.patch("tradingagents.dataflows.net.requests.get", side_effect=rq.Timeout("Read timed out.", request=req)), \
-         pytest.raises(rq.Timeout) as caught:
+         mock.patch("tradingagents.dataflows.net.requests.get",
+                    side_effect=lambda *a, **k: called.append(a)), \
+         pytest.raises(AnalysisProcessHasNoVendorKeys) as caught:
         fred._request("series", {"series_id": "DGS10"})
-    assert caught.value.request is None
+    assert _KEY not in str(caught.value)
+    assert called == []

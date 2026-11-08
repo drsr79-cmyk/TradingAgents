@@ -30,6 +30,13 @@ def get_indicator(
     Returns:
         String containing indicator values and description
     """
+    from tradingagents.safety import MAX_INDICATOR_LOOKBACK_DAYS, bound_int
+
+    bounded = bound_int("look_back_days", look_back_days, lo=1, hi=MAX_INDICATOR_LOOKBACK_DAYS)
+    if isinstance(bounded, str):
+        raise ValueError(bounded)
+    look_back_days = bounded
+
     from datetime import datetime
 
     from dateutil.relativedelta import relativedelta

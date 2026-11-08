@@ -56,3 +56,12 @@ class VendorNotConfiguredError(VendorError, ValueError):
     Also a ``ValueError`` so existing callers that catch ``ValueError`` keep
     working while the routing layer can treat it as "vendor unavailable".
     """
+
+
+class AnalysisProcessHasNoVendorKeys(VendorNotConfiguredError):
+    """This process must not read a data-vendor API key.
+
+    Vendor keys belong in a separate ingestion service. That service is not
+    implemented or deployed in this repository. The analysis process reads
+    sanitized local snapshots and does not place a vendor key on a request.
+    """

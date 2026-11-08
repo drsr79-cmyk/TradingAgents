@@ -73,13 +73,17 @@ def _search_news(canonical: str, limit: int) -> tuple[list, bool]:
 
 
 def _format_articles(articles: list[dict]) -> str:
+    from tradingagents.safety import neutralize_untrusted
+
     out = ""
     for data in articles:
-        out += f"### {data['title']} (source: {data['publisher']})\n"
+        title = neutralize_untrusted(data["title"], limit=500)
+        publisher = neutralize_untrusted(data["publisher"], limit=200)
+        out += f"### {title} (source: {publisher})\n"
         if data["summary"]:
-            out += f"{data['summary']}\n"
+            out += f"{neutralize_untrusted(data['summary'])}\n"
         if data["link"]:
-            out += f"Link: {data['link']}\n"
+            out += f"Link: {neutralize_untrusted(data['link'], limit=500)}\n"
         out += "\n"
     return out
 
@@ -152,11 +156,20 @@ def get_global_news_yfinance(
     Returns:
         Formatted string containing global news articles
     """
+    from tradingagents.safety import MAX_NEWS_LIMIT, MAX_NEWS_LOOKBACK_DAYS, bound_int
+
     config = get_config()
     if look_back_days is None:
         look_back_days = config["global_news_lookback_days"]
     if limit is None:
         limit = config["global_news_article_limit"]
+    bounded_days = bound_int("look_back_days", look_back_days, lo=1, hi=MAX_NEWS_LOOKBACK_DAYS)
+    bounded_limit = bound_int("limit", limit, lo=1, hi=MAX_NEWS_LIMIT)
+    if isinstance(bounded_days, str):
+        return bounded_days
+    if isinstance(bounded_limit, str):
+        return bounded_limit
+    look_back_days, limit = bounded_days, bounded_limit
     search_queries = config["global_news_queries"]
 
     curr_dt = datetime.strptime(as_of_date, "%Y-%m-%d")

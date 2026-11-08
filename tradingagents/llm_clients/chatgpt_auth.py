@@ -214,6 +214,9 @@ def access_token(now: Callable[[], float] = time.time) -> str:
     the token on disk: another run may have renewed it already, and the refresh
     token it rotated away must never be sent again. When OpenAI cannot be reached
     or is busy, a token that still works is used and renewal is tried again a minute later."""
+    from tradingagents.safety import require_online
+
+    require_online("ChatGPT token use")
     global _retry_after
     tokens = _read().get("tokens")
     if not tokens:
@@ -329,6 +332,9 @@ def sign_in(say: Callable[[str], None] = print, read_line: Callable[[], str] = i
     machine is remote or in a container, paste the address the browser ends up on.
     The pasted line is read in a thread that can outlive this call, so sign in as the
     last prompt of a process (``tradingagents login chatgpt``)."""
+    from tradingagents.safety import require_online
+
+    require_online("ChatGPT sign-in")
     data = _read()
     host_id = _host_id(data)
     account = data.get("account") or {}

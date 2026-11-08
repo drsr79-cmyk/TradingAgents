@@ -73,6 +73,12 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 
 > TradingAgents framework is designed for research purposes. Trading performance may vary based on many factors, including the chosen backbone language models, model temperature, trading periods, the quality of data, and other non-deterministic factors. [It is not intended as financial, investment, or trading advice.](https://tauric.ai/disclaimer/)
 
+By default the process runs in the **paper** profile (`TRADINGAGENTS_PROFILE` unset). That profile does not load a project `.env`, does not send cloud API keys, and does not call market-data hosts or the update check. It expects a keyless model server on `http://127.0.0.1:11434/v1`. The rating it prints is research text: no order is submitted and no paper fill is simulated.
+
+Networked research is opt-in. Export `TRADINGAGENTS_PROFILE=online` in the shell (a line that exists only in `.env` is not enough to leave the paper profile). A model credential is sent only to that provider's own host or to a loopback address. A different relay also needs `TRADINGAGENTS_ALLOW_CUSTOM_ENDPOINT=1`.
+
+Data-vendor keys (`ALPHA_VANTAGE_API_KEY`, `FRED_API_KEY`, `TYPESAFE_API_KEY`) are not read by this process and are not sent anywhere. They would belong only in a separate ingestion service, which this repository does not implement or deploy. The analysis process can read sanitized text files from `TRADINGAGENTS_SNAPSHOT_DIR` instead. Passing unit tests do not replace network isolation on the host: block egress there if the process must not be able to open a socket.
+
 Our framework decomposes complex trading tasks into specialized roles.
 
 ### Analyst Team
@@ -103,7 +109,7 @@ The selected analysts work at the same time, each on its own tools, and the rese
 
 ### Risk Management and Portfolio Manager
 - Continuously evaluates portfolio risk by assessing market volatility, liquidity, and other risk factors. The risk management team evaluates and adjusts trading strategies, providing assessment reports to the Portfolio Manager for final decision.
-- The Portfolio Manager approves/rejects the transaction proposal. If approved, the order will be sent to the simulated exchange and executed.
+- The Portfolio Manager writes a research rating (Buy, Overweight, Hold, Underweight, or Sell). No order is submitted, and this repository does not simulate a paper fill. Stop-loss and position size in the text are not enforced.
 
 <p align="center">
   <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">

@@ -1,6 +1,7 @@
 """The memory log: an append-only markdown record of each decision and, once settled, its outcome."""
 
 import contextlib
+import os
 import re
 from pathlib import Path
 
@@ -22,8 +23,10 @@ class TradingMemoryLog:
         self._log_path = None
         path = cfg.get("memory_log_path")
         if path:
+            from tradingagents.safety import harden_dir
+
             self._log_path = Path(path).expanduser()
-            self._log_path.parent.mkdir(parents=True, exist_ok=True)
+            harden_dir(self._log_path.parent)
         # Optional cap on resolved entries. None disables rotation.
         self._max_entries = cfg.get("memory_log_max_entries")
 
@@ -53,11 +56,17 @@ class TradingMemoryLog:
                 for line in raw.splitlines():
                     if line.startswith(f"[{trade_date} | {ticker} |") and line.endswith("]"):
                         return
+            from tradingagents.safety import harden_dir, harden_file, neutralize_untrusted, scrub
+
+            final_trade_decision = scrub(neutralize_untrusted(final_trade_decision, limit=100000))
             rating = rating or parse_rating(final_trade_decision)
             tag = f"[{trade_date} | {ticker} | {rating} | pending]"
             entry = f"{tag}\n\nDECISION:\n{final_trade_decision}{self._SEPARATOR}"
-            with open(self._log_path, "a", encoding="utf-8") as f:
+            harden_dir(self._log_path.parent)
+            fd = os.open(self._log_path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as f:
                 f.write(entry)
+            harden_file(self._log_path)
 
     def settling(self, wait: bool = True):
         """Hold the log for one settlement pass at a time, across threads and processes.
@@ -123,6 +132,8 @@ class TradingMemoryLog:
         if not same and not cross:
             return ""
 
+        from tradingagents.safety import lock_learning_text
+
         parts = []
         if same:
             parts.append(f"Past analyses of {ticker} (most recent first):")
@@ -130,7 +141,7 @@ class TradingMemoryLog:
         if cross:
             parts.append("Recent cross-ticker lessons:")
             parts.extend(self._format_reflection_only(e) for e in cross)
-        return "\n\n".join(parts)
+        return lock_learning_text("\n\n".join(parts))
 
     # --- Settle: record a decision's outcome and reflection ---
 
@@ -186,8 +197,10 @@ class TradingMemoryLog:
                         trade_date, ticker, rating, raw_pct, alpha_pct, holding_days, resolution_date
                     )
                     rest = "\n".join(lines[1:])
+                    from tradingagents.safety import scrub
+
                     new_blocks.append(
-                        f"{new_tag}\n\n{rest.lstrip()}\n\nREFLECTION:\n{reflection}"
+                        f"{new_tag}\n\n{scrub(rest.lstrip())}\n\nREFLECTION:\n{scrub(reflection)}"
                     )
                     updated = True
                 else:

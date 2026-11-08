@@ -47,6 +47,9 @@ class AzureOpenAIClient(BaseLLMClient):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
+        from tradingagents.safety import prepare_llm_call
+
+        prepare_llm_call("azure", llm_kwargs)
         return NormalizedAzureChatOpenAI(**llm_kwargs)
 
     def validate_model(self) -> bool:

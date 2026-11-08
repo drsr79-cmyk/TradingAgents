@@ -44,8 +44,19 @@ def test_keyless_local_uses_placeholder_and_chat_completions(monkeypatch):
 
 
 @pytest.mark.unit
-def test_optional_key_from_env(monkeypatch):
+def test_optional_key_from_env_is_not_sent_to_an_unknown_host(monkeypatch):
     monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "sk-relay-123")
+    monkeypatch.delenv("TRADINGAGENTS_ALLOW_CUSTOM_ENDPOINT", raising=False)
+    with pytest.raises(ValueError, match="Refusing to send"):
+        create_llm_client(
+            provider="openai_compatible", model="m", base_url="https://relay.example/v1"
+        ).get_llm()
+
+
+@pytest.mark.unit
+def test_optional_key_from_env_reaches_an_explicitly_allowed_relay(monkeypatch):
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "sk-relay-123")
+    monkeypatch.setenv("TRADINGAGENTS_ALLOW_CUSTOM_ENDPOINT", "1")
     llm = create_llm_client(
         provider="openai_compatible", model="m", base_url="https://relay.example/v1"
     ).get_llm()

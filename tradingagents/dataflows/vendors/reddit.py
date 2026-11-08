@@ -264,6 +264,9 @@ def fetch_reddit_posts(
     spent a back-off on almost every run. Each entry names its subreddit, and
     posts are grouped back by it.
 
+    In the paper profile this returns an unavailable placeholder and does not
+    open a connection.
+
     When ``start_date``/``end_date`` (yyyy-mm-dd) are given, posts are trimmed to
     that window so a historical run does not leak current discussion into a
     backtest (#1220).
@@ -272,6 +275,10 @@ def fetch_reddit_posts(
     flag per post and a note line that heads the block. It runs before the
     per-subreddit cut, so the posts it keeps fill the slots.
     """
+    from tradingagents.safety import network_allowed
+
+    if not network_allowed():
+        return "<reddit unavailable: paper profile does not use the network>"
     subreddits = list(subreddits or subreddits_for(ticker))
     # Crypto reaches us as a Yahoo pair (BTC-USD); search Reddit for the base
     # ("BTC") so the query actually matches discussion instead of near-nothing.

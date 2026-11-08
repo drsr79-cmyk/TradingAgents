@@ -1,5 +1,7 @@
 import os
 
+from tradingagents.safety import DEFAULT_OUTPUT_TOKENS, apply_paper_lockdown
+
 _TRADINGAGENTS_HOME = os.path.join(os.path.expanduser("~"), ".tradingagents")
 
 # Single source of truth for env-var → config-key overrides. To expose
@@ -80,7 +82,7 @@ def build_default_config() -> dict:
     Read when the package is imported, as DEFAULT_CONFIG; call it again to see
     the environment as it is now.
     """
-    return _apply_env_overrides({
+    config = _apply_env_overrides({
         "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR") or os.path.join(_TRADINGAGENTS_HOME, "logs"),
         "data_cache_dir": os.getenv("TRADINGAGENTS_CACHE_DIR") or os.path.join(_TRADINGAGENTS_HOME, "cache"),
         "memory_log_path": os.getenv("TRADINGAGENTS_MEMORY_LOG_PATH") or os.path.join(_TRADINGAGENTS_HOME, "memory", "trading_memory.md"),
@@ -122,7 +124,9 @@ def build_default_config() -> dict:
         # each provider at its own default. Set it to bound a model that emits
         # unbounded reasoning/output and hangs or trips a gateway idle timeout
         # (e.g. some deepseek-v4-flash deployments, #1204).
-        "max_tokens": None,
+        # A default cap so an unattended run cannot emit an unbounded completion.
+        # Raise it with TRADINGAGENTS_MAX_TOKENS up to the hard ceiling in safety.py.
+        "max_tokens": DEFAULT_OUTPUT_TOKENS,
         # Checkpoint/resume: when True, LangGraph saves state after each node
         # so a crashed run can resume from the last successful step.
         "checkpoint_enabled": False,
@@ -204,6 +208,7 @@ def build_default_config() -> dict:
         },
 
     })
+    return apply_paper_lockdown(config)
 
 
 DEFAULT_CONFIG = build_default_config()

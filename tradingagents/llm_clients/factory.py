@@ -84,6 +84,10 @@ def _coerce_max_tokens(value):
         raise ValueError(f"max_tokens must be an integer, got {value!r}") from exc
     if n <= 0:
         raise ValueError(f"max_tokens must be > 0, got {n}")
+    from tradingagents.safety import MAX_OUTPUT_TOKENS
+
+    if n > MAX_OUTPUT_TOKENS:
+        raise ValueError(f"max_tokens must be <= {MAX_OUTPUT_TOKENS}, got {n}")
     return n
 
 

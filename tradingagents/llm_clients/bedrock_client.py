@@ -51,6 +51,9 @@ class BedrockClient(BaseLLMClient):
 
     def get_llm(self) -> Any:
         """Return a configured ChatBedrockConverse instance."""
+        from tradingagents.safety import vet_bedrock
+
+        vet_bedrock()
         self.warn_if_unknown_model()
         chat_cls = _bedrock_class()
 

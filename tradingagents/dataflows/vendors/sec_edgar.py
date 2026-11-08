@@ -107,6 +107,9 @@ def _user_agent() -> str:
 
 def _fetch_json(url: str) -> dict:
     """Read a public EDGAR document, respecting SEC's identification rule."""
+    from tradingagents.safety import require_online
+
+    require_online("SEC EDGAR requests")
     try:
         response = requests.get(url, headers={"User-Agent": _user_agent()}, timeout=30)
         response.raise_for_status()

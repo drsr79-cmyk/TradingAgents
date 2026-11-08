@@ -52,9 +52,12 @@ def save_last_run(selections: dict) -> None:
     kept["analysts"] = [getattr(a, "value", a) for a in kept.get("analysts", [])] or None
     kept = {k: v for k, v in kept.items() if v is not None}
     try:
-        _PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        from tradingagents.safety import harden_dir, harden_file
+
+        harden_dir(_PREFS_PATH.parent)
         # A concurrent run reads one file or the other.
         replace_file(_PREFS_PATH, lambda temp: Path(temp).write_text(json.dumps(kept, indent=2), encoding="utf-8"))
+        harden_file(_PREFS_PATH)
     except OSError:
         return
 

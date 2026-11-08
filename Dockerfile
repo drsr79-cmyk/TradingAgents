@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS builder
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90 AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -10,7 +10,7 @@ WORKDIR /build
 COPY . .
 RUN pip install --no-cache-dir .
 
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 
 # TRADINGAGENTS_IN_DOCKER lets an update notice name the rebuild command.
 ENV PYTHONDONTWRITEBYTECODE=1 \

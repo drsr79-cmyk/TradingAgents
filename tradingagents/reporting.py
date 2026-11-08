@@ -83,7 +83,9 @@ def _report_parts(final_state: dict) -> list[tuple[str, str, list[tuple[str, str
             for key in path:
                 value = (value or {}).get(key)
             if value:
-                written.append((agent, filename, value))
+                from tradingagents.safety import scrub
+
+                written.append((agent, filename, scrub(value) if isinstance(value, str) else value))
         if written:
             parts.append((heading, folder, written))
     return parts

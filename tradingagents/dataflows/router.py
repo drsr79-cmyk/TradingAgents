@@ -199,6 +199,18 @@ def no_data_available(error: NoMarketDataError) -> str:
 
 def route_to_vendor(method: str, *args, **kwargs):
     """Route method calls to appropriate vendor implementation with fallback support."""
+    from tradingagents.safety import OfflineProfileError, read_local_snapshot, require_online, scrub
+
+    snapshot = read_local_snapshot(method, args)
+    if snapshot is not None:
+        return snapshot
+    try:
+        require_online(method)
+    except OfflineProfileError as exc:
+        return (
+            f"OFFLINE: {exc} Report that this data was not fetched. "
+            "Do not estimate or fabricate values."
+        )
     category = get_category_for_method(method)
     vendor_config = get_vendor(category, method)
     primary_vendors = [v.strip() for v in vendor_config.split(',')]
@@ -233,7 +245,8 @@ def route_to_vendor(method: str, *args, **kwargs):
         impl_func = vendor_impl[0] if isinstance(vendor_impl, list) else vendor_impl
 
         try:
-            return impl_func(*args, **kwargs)
+            result = impl_func(*args, **kwargs)
+            return scrub(result) if isinstance(result, str) else result
         except VendorUnavailableError as e:
             logger.warning("Vendor %r unavailable for %s: %s; trying next vendor.", vendor, method, e)
             # Kept so an all-unavailable chain can say the vendor was the

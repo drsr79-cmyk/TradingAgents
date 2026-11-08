@@ -14,6 +14,9 @@ def get_scrubbed(url: str, *, params: dict, timeout: float, secret: str, passthr
     which is why this raises after the ``except`` block rather than inside it.
     Statuses in ``passthrough`` are returned for the caller to handle.
     """
+    from tradingagents.safety import require_online
+
+    require_online(f"HTTP GET {url}")
     try:
         response = requests.get(url, params=params, timeout=timeout)
         if response.status_code not in passthrough:
@@ -30,6 +33,9 @@ def vendor_reachable(url: str, timeout: float = 5.0) -> bool:
     A client that returns an empty result instead of raising leaves those two
     cases indistinguishable. Called only when a result is empty.
     """
+    from tradingagents.safety import require_online
+
+    require_online(f"HTTP HEAD {url}")
     try:
         requests.head(url, timeout=timeout, allow_redirects=True)
         return True

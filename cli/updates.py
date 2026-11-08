@@ -41,7 +41,15 @@ DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def enabled() -> bool:
-    """Whether a person is at the terminal and has not turned the check off."""
+    """Whether a person is at the terminal and has not turned the check off.
+
+    The paper profile never contacts the update servers. Online mode still
+    requires a terminal and stays off under ``CI`` or ``TRADINGAGENTS_NO_UPDATE_CHECK``.
+    """
+    from tradingagents.safety import network_allowed
+
+    if not network_allowed():
+        return False
     at_a_terminal = bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
     return at_a_terminal and not os.environ.get("CI") and not os.environ.get(OPT_OUT)
 
@@ -88,6 +96,12 @@ def _get_json(url: str):
 def refresh(now: float | None = None) -> None:
     """Ask for the latest release and notices and record the answers. Never raises or prints;
     a failed check keeps what was known and is not retried for a day."""
+    from tradingagents.safety import OfflineProfileError, require_online
+
+    try:
+        require_online("update checks")
+    except OfflineProfileError:
+        return
     now = time.time() if now is None else now
     cache = read_cache()
     cache["checked_at"] = now
