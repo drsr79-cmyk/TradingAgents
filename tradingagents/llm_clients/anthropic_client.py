@@ -72,6 +72,9 @@ class AnthropicClient(BaseLLMClient):
                 continue
             llm_kwargs[key] = self.kwargs[key]
 
+        from tradingagents.safety import prepare_llm_call
+
+        prepare_llm_call("anthropic", llm_kwargs)
         return NormalizedChatAnthropic(**llm_kwargs)
 
     def validate_model(self) -> bool:

@@ -2,12 +2,9 @@
 
 __version__ = "0.7.1"
 
-from dotenv import find_dotenv, load_dotenv
+from tradingagents.safety import install_secret_filter, load_project_env
 
-# Load .env at package import so DEFAULT_CONFIG's env-var overlay and every LLM
-# client see the user's keys whichever entry point started the process.
-# usecwd=True walks from the working directory, so the installed console script
-# finds the project's .env rather than looking beside site-packages. Values the
-# caller has already exported are never overridden.
-load_dotenv(find_dotenv(usecwd=True))
-load_dotenv(find_dotenv(".env.enterprise", usecwd=True), override=False)
+# Online profile only: load the working directory's .env. The paper profile,
+# which is the default, does not read project env files.
+load_project_env()
+install_secret_filter()

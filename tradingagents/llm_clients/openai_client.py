@@ -375,6 +375,13 @@ class OpenAIClient(BaseLLMClient):
             if spec.credential is not None:
                 if "api_key" in self.kwargs:
                     raise ValueError(f"Provider '{self.provider}' uses its sign-in, not an api_key.")
+                from tradingagents.safety import PAPER, profile
+
+                if profile() == PAPER:
+                    raise ValueError(
+                        "Paper profile does not use a signed-in cloud account. "
+                        "Set TRADINGAGENTS_PROFILE=online to use it."
+                    )
                 llm_kwargs["api_key"] = spec.credential()
             elif api_key:
                 llm_kwargs["api_key"] = api_key
@@ -404,6 +411,9 @@ class OpenAIClient(BaseLLMClient):
             llm_kwargs[key] = self.kwargs[key]
 
         # The subclass (provider quirks) comes from the registry spec.
+        from tradingagents.safety import prepare_llm_call
+
+        prepare_llm_call(self.provider, llm_kwargs, spec=spec)
         return chat_cls(**llm_kwargs)
 
     def validate_model(self) -> bool:

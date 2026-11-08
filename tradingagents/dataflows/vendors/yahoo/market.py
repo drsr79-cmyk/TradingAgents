@@ -149,6 +149,14 @@ def get_stock_stats_indicators_window(
         raise ValueError(
             f"Indicator {indicator} is not supported. Please choose from: {list(best_ind_params.keys())}"
         )
+    from tradingagents.safety import MAX_INDICATOR_LOOKBACK_DAYS, bound_int
+
+    bounded = bound_int(
+        "look_back_days", look_back_days, lo=1, hi=MAX_INDICATOR_LOOKBACK_DAYS
+    )
+    if isinstance(bounded, str):
+        raise ValueError(bounded)
+    look_back_days = bounded
 
     end_date = as_of_date
     as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")

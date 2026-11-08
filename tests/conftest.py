@@ -25,6 +25,10 @@ def _blank_settings_overlay():
 
 
 _blank_settings_overlay()
+# The product default is the paper profile. This suite opts into online so the
+# existing provider and vendor tests still exercise that path. Paper behavior
+# is covered by tests that set TRADINGAGENTS_PROFILE=paper.
+os.environ["TRADINGAGENTS_PROFILE"] = "online"
 
 
 def _own_file_locations():

@@ -30,6 +30,9 @@ DEFAULT_LIMIT = 6
 
 
 def _request(path: str, params: dict) -> dict:
+    from tradingagents.safety import require_online
+
+    require_online("Polymarket requests")
     response = requests.get(
         f"{GAMMA_BASE}/{path}", params=params, timeout=REQUEST_TIMEOUT
     )
@@ -99,6 +102,16 @@ def get_prediction_markets(topic: str, limit: int | None = None, as_of_date: str
         each with its implied probability, traded volume, resolution date, and
         recent (1-week) move.
     """
+    from tradingagents.safety import (
+        MAX_MARKET_LIMIT,
+        MAX_TOPIC_CHARS,
+        bound_int,
+        neutralize_untrusted,
+    )
+
+    topic = neutralize_untrusted(topic, limit=MAX_TOPIC_CHARS)
+    if len(topic) > MAX_TOPIC_CHARS:
+        return f"Prediction-market topic must be at most {MAX_TOPIC_CHARS} characters."
     if is_historical(as_of_date):
         return (
             f"Prediction-market odds are withheld for {as_of_date}. Polymarket serves "
@@ -107,6 +120,10 @@ def get_prediction_markets(topic: str, limit: int | None = None, as_of_date: str
         )
     if limit is None:
         limit = DEFAULT_LIMIT
+    bounded_limit = bound_int("limit", limit, lo=1, hi=MAX_MARKET_LIMIT)
+    if isinstance(bounded_limit, str):
+        return bounded_limit
+    limit = bounded_limit
 
     try:
         data = _request("public-search", {"q": topic, "limit_per_type": 20})

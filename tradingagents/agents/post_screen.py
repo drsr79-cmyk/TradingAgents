@@ -20,8 +20,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-from tradingagents.agents.context import resolve_instrument_identity
-
 logger = logging.getLogger(__name__)
 
 _DEFAULT_BASE_URL = "https://api.typesafe.ai"
@@ -72,6 +70,10 @@ def system_one(state, questions: dict) -> dict[str, dict]:
     backoff, honouring ``Retry-After``; any other failure raises
     ``TypeSafeError`` at once.
     """
+    from tradingagents.safety import refuse_vendor_key
+
+    # The bearer token is a data-vendor credential. It is not read or sent.
+    refuse_vendor_key("TYPESAFE_API_KEY")
     body = {
         "state": state,
         "model": os.environ.get("TYPESAFE_DEFAULT_MODEL") or _DEFAULT_MODEL,
@@ -136,24 +138,16 @@ def jev_screen(ticker: str):
     The screen takes the post texts and returns one keep flag per post and a
     note line for the top of the source's block.
     """
-    if not os.environ.get("TYPESAFE_API_KEY"):
+    from tradingagents.safety import network_allowed
+
+    # Presence is checked without copying the value into a request, prompt, or log.
+    if not network_allowed() or not os.environ.get("TYPESAFE_API_KEY"):
         return None
-    name = resolve_instrument_identity(ticker).get("company_name")
-    instrument = f"{name} ({ticker})" if name else ticker
 
     def screen(posts: list[str]) -> tuple[list[bool], str]:
-        try:
-            answers = _ask_each(instrument, posts)
-            keep = [a["about"]["noul"] >= _OFF_TOPIC_BELOW for a in answers]
-            stances = [_stance(a["stance"]) for a, kept in zip(answers, keep, strict=True) if kept]
-        except (KeyError, TypeError):
-            return _unscreened(instrument, posts, "malformed response")
-        except TypeSafeError as exc:
-            return _unscreened(instrument, posts, str(exc))
-        counts = ", ".join(f"{stances.count(s)} {s}" for s in ("bullish", "bearish", "neutral", "unclear"))
-        return keep, (
-            f"Screened by Jev: {len(stances)} of the {len(posts)} posts fetched are about "
-            f"{instrument}; their stance on its stock: {counts}."
+        return [True] * len(posts), (
+            "<Jev screening unavailable: the analysis process does not use TYPESAFE_API_KEY; "
+            "posts are unscreened>"
         )
 
     return screen

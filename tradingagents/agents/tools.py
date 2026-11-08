@@ -86,8 +86,15 @@ def get_verified_market_snapshot(
     resistance, or historical comparisons, and treat it as the source of truth.
     """
     # An exception out of a tool would end the run.
+    from tradingagents.safety import OfflineProfileError
+
     try:
         return build_verified_market_snapshot(symbol, as_of(curr_date, trade_date), look_back_days)
+    except OfflineProfileError as exc:
+        return (
+            f"OFFLINE: {exc} Report that this data was not fetched. "
+            "Do not estimate or fabricate values."
+        )
     except VendorUnavailableError as exc:
         return vendor_unavailable("get_verified_market_snapshot", exc)
     except NoMarketDataError as exc:

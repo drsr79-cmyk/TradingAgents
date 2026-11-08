@@ -1,5 +1,4 @@
 import json
-import os
 from datetime import datetime
 from io import StringIO
 
@@ -26,13 +25,15 @@ class AlphaVantageNotConfiguredError(VendorNotConfiguredError):
 
 
 def get_api_key() -> str:
-    """Retrieve the API key for Alpha Vantage from environment variables."""
-    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
-    if not api_key:
-        raise AlphaVantageNotConfiguredError(
-            "ALPHA_VANTAGE_API_KEY environment variable is not set."
-        )
-    return api_key
+    """This analysis process does not read ``ALPHA_VANTAGE_API_KEY``.
+
+    The value is not loaded. A separate ingestion service, which is not
+    implemented or deployed here, would be the only place that key could live.
+    """
+    from tradingagents.safety import refuse_vendor_key
+
+    refuse_vendor_key("ALPHA_VANTAGE_API_KEY")
+    raise AssertionError("refuse_vendor_key returns only by raising")
 
 
 def format_datetime_for_api(date_input, end_of_day: bool = False) -> str:

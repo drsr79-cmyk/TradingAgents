@@ -105,13 +105,13 @@ def _config_with_env(monkeypatch, **overrides):
 
 
 @pytest.mark.unit
-def test_default_is_none(monkeypatch):
+def test_default_is_capped(monkeypatch):
     config = _config_with_env(monkeypatch)
-    assert config["max_tokens"] is None
+    assert config["max_tokens"] == 4096
 
 
 @pytest.mark.unit
 def test_env_override_sets_config(monkeypatch):
     config = _config_with_env(monkeypatch, TRADINGAGENTS_MAX_TOKENS="8192")
-    assert config["max_tokens"] == "8192"
+    assert config["max_tokens"] == 8192
     assert _coerce_max_tokens(config["max_tokens"]) == 8192

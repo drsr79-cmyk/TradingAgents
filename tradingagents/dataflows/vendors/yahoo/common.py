@@ -73,6 +73,9 @@ def yf_retry(func, max_retries=3, base_delay=2.0):
     itself: a Ticker keeps a failed ``info`` fetch as done, so asking the same
     one again reads an empty profile.
     """
+    from tradingagents.safety import require_online
+
+    require_online("Yahoo Finance requests")
     for attempt in range(max_retries + 1):
         try:
             return func()

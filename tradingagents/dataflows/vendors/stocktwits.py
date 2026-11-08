@@ -19,7 +19,9 @@ import html
 import http.client
 import json
 import logging
+import re
 from datetime import datetime
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from tradingagents.dataflows.date_window import coverage_gap, in_window
@@ -94,7 +96,14 @@ def fetch_stocktwits_messages(
     symbol has no messages, or the response shape is unexpected — the
     caller never has to special-case None or exceptions.
     """
-    url = _API.format(ticker=_stocktwits_symbol(ticker))
+    from tradingagents.safety import network_allowed
+
+    if not network_allowed():
+        return "<stocktwits unavailable: paper profile does not use the network>"
+    symbol = _stocktwits_symbol(ticker)
+    if not re.fullmatch(r"[A-Za-z0-9.]{1,32}", symbol):
+        return f"<stocktwits unavailable: symbol {ticker!r} is not a single path segment>"
+    url = _API.format(ticker=quote(symbol, safe="."))
     req = Request(url, headers={"User-Agent": _UA, "Accept": "application/json"})
     try:
         with urlopen(req, timeout=timeout) as resp:

@@ -18,21 +18,22 @@ from tradingagents.agents.context import (
 from tradingagents.agents.rating import parse_rating
 from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
+from tradingagents.safety import lock_learning_text, scrub, with_research_notice
 
 
 def create_portfolio_manager(llm):
     structured_llm = bind_structured(llm, PortfolioDecision, "Portfolio Manager")
 
     def portfolio_manager_node(state) -> dict:
-        instrument_context = get_instrument_context_from_state(state)
-        portfolio_context = get_portfolio_context_from_state(state)
+        instrument_context = scrub(get_instrument_context_from_state(state))
+        portfolio_context = scrub(get_portfolio_context_from_state(state))
 
-        history = state["risk_debate_state"]["history"]
+        history = scrub(state["risk_debate_state"]["history"])
         risk_debate_state = state["risk_debate_state"]
-        research_plan = state["investment_plan"]
-        trader_plan = state["trader_investment_plan"]
+        research_plan = scrub(state["investment_plan"])
+        trader_plan = scrub(state["trader_investment_plan"])
 
-        past_context = state.get("past_context", "")
+        past_context = lock_learning_text(state.get("past_context", ""))
         lessons_line = (
             f"- Lessons from prior decisions and outcomes:\n{past_context}\n"
             if past_context
@@ -79,10 +80,10 @@ Write these sections, in this order, starting with the rating on its own line:
         # Read back from text, a rating the thesis quotes could replace it.
         decision = invoke_structured(structured_llm, prompt, "Portfolio Manager")
         if decision is not None:
-            final_trade_decision = render_pm_decision(decision)
+            final_trade_decision = with_research_notice(scrub(render_pm_decision(decision)))
             final_rating = decision.rating.value
         else:
-            final_trade_decision = llm.invoke(prompt).content
+            final_trade_decision = with_research_notice(scrub(llm.invoke(prompt).content))
             final_rating = parse_rating(final_trade_decision)
 
         new_risk_debate_state = {

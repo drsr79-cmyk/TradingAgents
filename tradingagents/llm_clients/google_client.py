@@ -72,6 +72,9 @@ class GoogleClient(BaseLLMClient):
                 thinking_level = "low"
             llm_kwargs["thinking_level"] = thinking_level
 
+        from tradingagents.safety import prepare_llm_call
+
+        prepare_llm_call("google", llm_kwargs)
         return NormalizedChatGoogleGenerativeAI(**llm_kwargs)
 
     def validate_model(self) -> bool:
